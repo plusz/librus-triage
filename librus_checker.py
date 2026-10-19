@@ -230,7 +230,7 @@ def notify_macos(title: str, body: str) -> None:
         f"display notification {json.dumps(_one_line(body))} "
         f"with title {json.dumps(_one_line(title))} sound name \"Glass\""
     )
-    subprocess.run([osascript, "-e", script], check=False)
+    subprocess.run([osascript, "-e", script], check=False)  # nosec B603 — no shell; message text is json.dumps-escaped AppleScript
 
 
 def notify_ntfy(env: dict, title: str, body: str) -> None:
