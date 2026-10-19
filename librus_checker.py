@@ -541,22 +541,40 @@ def cmd_check(session: requests.Session, env: dict) -> int:
         log.info("no new messages (%d checked)", len(items))
         return 0
 
+    notified = 0
     summarize_on = env_bool(env, "SUMMARIZE_ENABLED", False)
+    triage_on = env_bool(env, "TRIAGE_ENABLED", False)
     for m in reversed(new_items):  # oldest first
         title = f"Nowa wiadomość: {_one_line(m.get('topic', '(brak tematu)'))}"
         body = f"{sender_of(m)} • {m.get('sendDate', '')}"
-        if summarize_on:
+        do_notify = True
+        if triage_on:
+            try:
+                # full body marks the message read — accepted cost of real triage
+                a = analyze(env, m, decode_body(fetch_message(session, m["messageId"])))
+                do_notify = a["notify"]
+                if a["notify"]:
+                    body += f"\n{a['reason']}"
+                    if a["action_required"]:
+                        body += f"\nAkcja: {a['action']}"
+            except Exception as e:
+                log.error("triage failed for %s: %s — notifying anyway", m["messageId"], e)
+        elif summarize_on:
             try:
                 full = fetch_message(session, m["messageId"])  # marks the message read
                 body += "\n" + summarize(env, decode_body(full))
             except Exception as e:
                 log.error("summary failed for message %s: %s", m["messageId"], e)
-        log.info("NEW %s | %s | %s", m["messageId"], sender_of(m), m.get("topic"))
-        notify(env, title, body)
+        if do_notify:
+            notified += 1
+            log.info("NEW %s | %s | %s", m["messageId"], sender_of(m), m.get("topic"))
+            notify(env, title, body)
+        else:
+            log.info("SUPPRESSED %s | %s | %s", m["messageId"], sender_of(m), m.get("topic"))
 
     state["seen"] = list(seen | {m["messageId"] for m in new_items})
     save_state(state)
-    log.info("%d new message(s) notified", len(new_items))
+    log.info("%d new message(s), %d notified", len(new_items), notified)
     return 0
 
 

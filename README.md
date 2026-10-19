@@ -91,8 +91,13 @@ python3 -m venv basal-env
 basal decides; it cannot summarize (no generation). For summaries use
 `AI_PROVIDER=openai` (or `ollama` if you have it).
 
-Triage currently applies to `--analyze`; the hourly check still notifies on every
-new message (sender rules and filtering there are a TODO).
+### Triage in the hourly check
+
+Set `TRIAGE_ENABLED=true` in `.env` and keep the basal server running: each new
+message is then fetched in full (**this marks it read in Librus**), classified,
+and the notification fires only when the decision is `notify=yes` — sender rules
+included. If triage fails (e.g. basal is down), the checker falls back to
+notifying normally, so a broken model never means a lost message.
 
 ### Sender rules (deterministic, model can't override)
 
